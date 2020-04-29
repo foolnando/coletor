@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering 
-
+from scrapy.selector import Selector
 
 class ScraperWithDuplicateRequests(scrapy.Spider):
     name = "getbid"
@@ -20,7 +20,7 @@ class ScraperWithDuplicateRequests(scrapy.Spider):
     
 
     custom_settings = {
-        'DEPTH_LIMIT': 15
+        'DEPTH_LIMIT': 5
     }
     custom_settings = {
         'CLOSESPIDER_ITEMCOUNT': 800
@@ -152,68 +152,46 @@ class ScraperWithDuplicateRequests(scrapy.Spider):
 
 
     def parse(self, response):
+        scoreUrl=[]
         target = response.url
-        
-        url = []
-        followLink = stack()
-        x = []
-        #print('fetch')
-        #print(response.meta['depth'])
-        print('iniciou')
-        #print(len(url))
-       for next_page in response.css('a::attr(href)').extract():
-            #print('next:')
-            #print(response.meta['depth'])
+        for next_page in response.css('a::attr(href)'):
             if next_page is not None:
-                depth = response.meta['depth']
-                #next_page = response.urljoin(next_page)
+                next_page = response.urljoin(next_page)
                 score = self.align(target,next_page)
                 if(score[1]>12):
-                    url.append(next_page)
-                    followLink.push(next_page)
-                    x.append(score)
-                    yield{'path': next_page, 'score': score}
+                    scoreUrl.append(score)
+                    yield{'path': next_page.extract(), 'score': score}
+                yield response.follow(next_page, self.parse)
 
-                print('numero de páginas resgatadas:')
-                print(len(url))
-                
-                
-                
-                #if (score[1]>=38) and (score[0]>=19):
-                    #path.append(next_page)
-                    #yield{'path': next_page, 'score': score}
-
-                    #yield {'target': next_page, 'depth': response.meta['depth'], 'tam': len(url)}
-                    #yield response.follow(next_page, self.parse_path, dont_filter = True)
-                
-                print(next_page)
-                print(response.meta['depth']) 
-                yield scrapy.Request(response.urljoin(next_page),callback=self.parse)
-
-        
-        
-
-        #dendograma do processo de clustering
-        dendrogram = sch.dendrogram(sch.linkage(x, method  = "ward"))
+        dendrogram = sch.dendrogram(sch.linkage(scoreUrl, method  = "ward"))
         plt.title('Dendrogram')
-        lt.xlabel('Customers')
+        plt.xlabel('Customers')
         plt.ylabel('Euclidean distances')
-        #plt.show()
+        plt.show()
 
+        '''
+        hc = AgglomerativeClustering(n_clusters = 5, affinity = 'euclidean', linkage ='ward')
+        y_hc=hc.fit_predict(scoreUrl)
+        y = np.array(scoreUrl)
 
-        #print dos clustring
-        #o primeiro clsutering sempre vai ser o maior ????
         hc = AgglomerativeClustering(n_clusters = 5, affinity = 'euclidean', linkage ='ward')
         y_hc=hc.fit_predict(x)
         y = np.array(x)
-        #plt.scatter(y[y_hc==0, 0], y[y_hc==0, 1], s=100, c='red', label ='Cluster 1')
-        #plt.scatter(y[y_hc==1, 0], y[y_hc==1, 1], s=100, c='blue', label ='Cluster 2')
-        #plt.scatter(y[y_hc==2, 0], y[y_hc==2, 1], s=100, c='green', label ='Cluster 3')
-        #plt.scatter(y[y_hc==3, 0], y[y_hc==3, 1], s=100, c='cyan', label ='Cluster 4')
-        #plt.scatter(y[y_hc==4, 0], y[y_hc==4, 1], s=100, c='magenta', label ='Cluster 5')
-        #plt.title('Clusters of Customers (Hierarchical Clustering Model)')
-        #plt.xlabel('Score do alinhamento')
-        #plt.ylabel('minimo radical comum')
-        #plt.show()
-            
-    
+        for i in range(1,4):
+            y0 = y[y_hc==i-1, 0], y[y_hc==i-1, 1]
+            y0 = y[y_hc==i, 0], y[y_hc==i, 1]
+            print(len(y0[0]))
+        plt.scatter(y[y_hc==0, 0], y[y_hc==0, 1], s=100, c='red', label ='Cluster 1')
+        plt.scatter(y[y_hc==1, 0], y[y_hc==1, 1], s=100, c='blue', label ='Cluster 2')
+        plt.scatter(y[y_hc==2, 0], y[y_hc==2, 1], s=100, c='green', label ='Cluster 3')
+        plt.scatter(y[y_hc==3, 0], y[y_hc==3, 1], s=100, c='cyan', label ='Cluster 4')
+        plt.scatter(y[y_hc==4, 0], y[y_hc==4, 1], s=100, c='magenta', label ='Cluster 5')
+        plt.title('Clusters de Páginas (Hierarchical Clustering Model)')
+        plt.xlabel('Score do alinhamento')
+        plt.ylabel('minimo radical comum')
+        plt.show()'''
+   
+
+        process = CrawlerProcess()
+        process.crawl(getbid)
+        process.start()
